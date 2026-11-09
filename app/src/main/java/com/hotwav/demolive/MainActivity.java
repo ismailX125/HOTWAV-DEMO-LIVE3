@@ -5,6 +5,9 @@ import android.os.Bundle;
 import android.content.Intent;
 import android.net.Uri;
 import android.provider.Settings;
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.LinearLayout;
@@ -12,6 +15,8 @@ import android.widget.TextView;
 import android.graphics.Color;
 
 public class MainActivity extends Activity {
+
+    private static final int VIDEO_PERMISSION = 100;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -51,8 +56,18 @@ public class MainActivity extends Activity {
                 return;
             }
 
-            Intent service = new Intent(this, DemoService.class);
-            startService(service);
+            if (Build.VERSION.SDK_INT >= 33 &&
+                checkSelfPermission(Manifest.permission.READ_MEDIA_VIDEO)
+                != PackageManager.PERMISSION_GRANTED) {
+
+                requestPermissions(
+                    new String[]{Manifest.permission.READ_MEDIA_VIDEO},
+                    VIDEO_PERMISSION
+                );
+                return;
+            }
+
+            startDemoService();
         });
 
         layout.addView(title);
@@ -60,5 +75,33 @@ public class MainActivity extends Activity {
         layout.addView(start);
 
         setContentView(layout);
+    }
+
+    private void startDemoService() {
+        Intent service = new Intent(this, DemoService.class);
+
+        if (Build.VERSION.SDK_INT >= 26) {
+            startForegroundService(service);
+        } else {
+            startService(service);
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(
+        int requestCode,
+        String[] permissions,
+        int[] grantResults
+    ) {
+        super.onRequestPermissionsResult(
+            requestCode, permissions, grantResults
+        );
+
+        if (requestCode == VIDEO_PERMISSION &&
+            grantResults.length > 0 &&
+            grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+
+            startDemoService();
+        }
     }
 }
