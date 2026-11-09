@@ -5,7 +5,6 @@ import android.os.Bundle;
 import android.content.Intent;
 import android.net.Uri;
 import android.provider.Settings;
-import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.LinearLayout;
@@ -43,8 +42,22 @@ public class MainActivity extends Activity {
             startActivity(intent);
         });
 
+        Button start = new Button(this);
+        start.setText("تشغيل العرض");
+
+        start.setOnClickListener(v -> {
+            if (!Settings.canDrawOverlays(this)) {
+                permission.performClick();
+                return;
+            }
+
+            Intent service = new Intent(this, DemoService.class);
+            startService(service);
+        });
+
         layout.addView(title);
         layout.addView(permission);
+        layout.addView(start);
 
         setContentView(layout);
     }
