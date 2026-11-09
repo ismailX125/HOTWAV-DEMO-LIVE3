@@ -1,14 +1,18 @@
 package com.hotwav.demolive;
 
 import android.app.Service;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.content.Intent;
 import android.os.IBinder;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.graphics.PixelFormat;
 import android.view.WindowManager;
 import android.view.Gravity;
-import android.view.View;
+import android.view.MotionEvent;
 import android.widget.VideoView;
 import android.net.Uri;
 import android.os.Environment;
@@ -26,8 +30,34 @@ public class DemoService extends Service {
     public void onCreate() {
         super.onCreate();
 
+        createNotification();
+
         manager = (WindowManager) getSystemService(WINDOW_SERVICE);
         showVideo();
+    }
+
+    private void createNotification() {
+        String channelId = "hotwav_demo";
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                channelId,
+                "HOTWAV Demo",
+                NotificationManager.IMPORTANCE_LOW
+            );
+
+            getSystemService(NotificationManager.class)
+                .createNotificationChannel(channel);
+        }
+
+        Notification notification =
+            new Notification.Builder(this, channelId)
+                .setContentTitle("HOTWAV DEMO LIVE")
+                .setContentText("خدمة عرض الفيديو تعمل")
+                .setSmallIcon(android.R.drawable.ic_media_play)
+                .build();
+
+        startForeground(1, notification);
     }
 
     private void showVideo() {
@@ -45,15 +75,18 @@ public class DemoService extends Service {
 
         video = new VideoView(this);
         video.setVideoURI(Uri.fromFile(file));
+
         video.setOnPreparedListener(mp -> {
             mp.setLooping(true);
             video.start();
         });
 
         video.setOnTouchListener((v, event) -> {
-            hideVideo();
-            handler.removeCallbacks(showAgain);
-            handler.postDelayed(showAgain, 30000);
+            if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                hideVideo();
+                handler.removeCallbacks(showAgain);
+                handler.postDelayed(showAgain, 30000);
+            }
             return true;
         });
 
@@ -76,6 +109,11 @@ public class DemoService extends Service {
             manager.removeView(video);
             video = null;
         }
+    }
+
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        return START_STICKY;
     }
 
     @Override
