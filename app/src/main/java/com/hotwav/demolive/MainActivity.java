@@ -10,6 +10,9 @@ import android.widget.FrameLayout;
 import android.widget.VideoView;
 import android.net.Uri;
 import android.os.Environment;
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import java.io.File;
 
 public class MainActivity extends Activity {
@@ -19,6 +22,7 @@ public class MainActivity extends Activity {
     private Handler handler = new Handler();
 
     private static final long IDLE_TIME = 30000;
+    private static final int VIDEO_PERMISSION = 100;
 
     private final Runnable showVideo = new Runnable() {
         @Override
@@ -35,8 +39,9 @@ public class MainActivity extends Activity {
             WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
         );
 
-        screen = new FrameLayout(this);
+        hideSystemUI();
 
+        screen = new FrameLayout(this);
         videoView = new VideoView(this);
 
         screen.addView(videoView,
@@ -48,14 +53,51 @@ public class MainActivity extends Activity {
 
         setContentView(screen);
 
-        hideSystemUI();
-        playVideo();
-
         screen.setOnClickListener(v -> {
             handler.removeCallbacks(showVideo);
+            videoView.stopPlayback();
             videoView.setVisibility(View.GONE);
             handler.postDelayed(showVideo, IDLE_TIME);
         });
+
+        checkVideoPermission();
+    }
+
+    private void checkVideoPermission() {
+        if (Build.VERSION.SDK_INT >= 33) {
+            if (checkSelfPermission(
+                Manifest.permission.READ_MEDIA_VIDEO
+            ) != PackageManager.PERMISSION_GRANTED) {
+
+                requestPermissions(
+                    new String[]{
+                        Manifest.permission.READ_MEDIA_VIDEO
+                    }, VIDEO_PERMISSION
+                );
+
+            } else {
+                playVideo();
+            }
+        } else {
+            playVideo();
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(
+        int requestCode,
+        String[] permissions,
+        int[] grantResults
+    ) {
+        super.onRequestPermissionsResult(
+            requestCode, permissions, grantResults
+        );
+
+        if (requestCode == VIDEO_PERMISSION
+            && grantResults.length > 0
+            && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            playVideo();
+        }
     }
 
     private void playVideo() {
