@@ -2,12 +2,13 @@ plugins {
     id 'com.android.application'
 }
 
+
 android {
-    namespace 'com.hotwav.demolive'
+    namespace 'com.hotwav.demo'
     compileSdk 35
 
     defaultConfig {
-        applicationId 'com.hotwav.demolive'
+        applicationId 'com.hotwav.demo'
         minSdk 23
         targetSdk 35
         versionCode 1
