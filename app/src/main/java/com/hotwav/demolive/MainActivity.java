@@ -9,11 +9,12 @@ import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.VideoView;
 import android.net.Uri;
-import android.os.Environment;
+import android.provider.MediaStore;
+import android.content.ContentUris;
+import android.database.Cursor;
 import android.Manifest;
 import android.content.pm.PackageManager;
 import android.os.Build;
-import java.io.File;
 
 public class MainActivity extends Activity {
 
@@ -22,14 +23,8 @@ public class MainActivity extends Activity {
     private Handler handler = new Handler();
 
     private static final long IDLE_TIME = 30000;
-    private static final int VIDEO_PERMISSION = 100;
 
-    private final Runnable showVideo = new Runnable() {
-        @Override
-        public void run() {
-            playVideo();
-        }
-    };
+    private final Runnable showVideo = () -> playVideo();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -39,19 +34,13 @@ public class MainActivity extends Activity {
             WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON
         );
 
-        hideSystemUI();
-
         screen = new FrameLayout(this);
         videoView = new VideoView(this);
 
-        screen.addView(videoView,
-            new FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-            )
-        );
+        screen.addView(videoView);
 
         setContentView(screen);
+        hideSystemUI();
 
         screen.setOnClickListener(v -> {
             handler.removeCallbacks(showVideo);
@@ -60,24 +49,17 @@ public class MainActivity extends Activity {
             handler.postDelayed(showVideo, IDLE_TIME);
         });
 
-        checkVideoPermission();
+        checkPermission();
     }
 
-    private void checkVideoPermission() {
-        if (Build.VERSION.SDK_INT >= 33) {
-            if (checkSelfPermission(
-                Manifest.permission.READ_MEDIA_VIDEO
-            ) != PackageManager.PERMISSION_GRANTED) {
+    private void checkPermission() {
+        if (Build.VERSION.SDK_INT >= 33 &&
+            checkSelfPermission(Manifest.permission.READ_MEDIA_VIDEO)
+            != PackageManager.PERMISSION_GRANTED) {
 
-                requestPermissions(
-                    new String[]{
-                        Manifest.permission.READ_MEDIA_VIDEO
-                    }, VIDEO_PERMISSION
-                );
-
-            } else {
-                playVideo();
-            }
+            requestPermissions(
+                new String[]{Manifest.permission.READ_MEDIA_VIDEO}, 100
+            );
         } else {
             playVideo();
         }
@@ -85,31 +67,46 @@ public class MainActivity extends Activity {
 
     @Override
     public void onRequestPermissionsResult(
-        int requestCode,
-        String[] permissions,
-        int[] grantResults
-    ) {
-        super.onRequestPermissionsResult(
-            requestCode, permissions, grantResults
-        );
+        int requestCode, String[] permissions, int[] results) {
+        super.onRequestPermissionsResult(requestCode, permissions, results);
 
-        if (requestCode == VIDEO_PERMISSION
-            && grantResults.length > 0
-            && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+        if (requestCode == 100 && results.length > 0 &&
+            results[0] == PackageManager.PERMISSION_GRANTED) {
             playVideo();
         }
     }
 
-    private void playVideo() {
-        File file = new File(
-            Environment.getExternalStorageDirectory(),
-            "Movies/HOTWAV/demo.mp4"
-        );
+    private Uri findVideo() {
+        String selection =
+            MediaStore.Video.Media.DISPLAY_NAME + "=?";
 
-        if (!file.exists()) return;
+        String[] args = {"demo.mp4"};
+
+        try (Cursor cursor = getContentResolver().query(
+            MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
+            new String[]{MediaStore.Video.Media._ID},
+            selection,
+            args,
+            null
+        )) {
+            if (cursor != null && cursor.moveToFirst()) {
+                long id = cursor.getLong(0);
+                return ContentUris.withAppendedId(
+                    MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id
+                );
+            }
+        }
+
+        return null;
+    }
+
+    private void playVideo() {
+        Uri uri = findVideo();
+
+        if (uri == null) return;
 
         videoView.setVisibility(View.VISIBLE);
-        videoView.setVideoURI(Uri.fromFile(file));
+        videoView.setVideoURI(uri);
 
         videoView.setOnPreparedListener(mp -> {
             mp.setLooping(true);
@@ -119,12 +116,10 @@ public class MainActivity extends Activity {
 
     private void hideSystemUI() {
         getWindow().getDecorView().setSystemUiVisibility(
-            View.SYSTEM_UI_FLAG_FULLSCREEN
-            | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-            | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-            | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-            | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-            | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+            View.SYSTEM_UI_FLAG_FULLSCREEN |
+            View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
+            View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY |
+            View.SYSTEM_UI_FLAG_LAYOUT_STABLE
         );
     }
 
